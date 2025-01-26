@@ -3,7 +3,7 @@ const morgan = require('morgan');
 const cors = require('cors');
 const { connectDB } = require('./config/db');
 const authRoutes = require('./routes/authRoutes');
-// const userRoutes = require('./routes/userRoutes');
+const userRoutes = require('./routes/userRoutes');
 // const leaveRoutes = require('./routes/leaveRoutes');
 
 const app = express();
@@ -27,7 +27,7 @@ app.get('/test-error', (req, res, next) => {
 
 // Routes
 app.use('/api/auth', authRoutes);
-// app.use('/api/users', userRoutes);
+app.use('/api/users', userRoutes);
 // app.use('/api/leaves', leaveRoutes);
 
 // Error handling middleware
