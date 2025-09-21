@@ -24,7 +24,7 @@ app.get('/test-error', (req, res, next) => {
   next(error);
 });
 
-
+//locahost:3000/api/users/profile
 // Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
