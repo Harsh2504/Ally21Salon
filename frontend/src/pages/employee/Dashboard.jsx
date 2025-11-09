@@ -49,9 +49,9 @@ const EmployeeDashboard = () => {
   ];
 
   const recentServices = [
-    { name: 'Hair Cut & Style', category: 'Hair', price: '$50' },
-    { name: 'Hair Coloring', category: 'Hair', price: '$120' },
-    { name: 'Facial Treatment', category: 'Skincare', price: '$80' },
+    { name: 'Hair Cut & Style', category: 'Hair', price: '₹50' },
+    { name: 'Hair Coloring', category: 'Hair', price: '₹120' },
+    { name: 'Facial Treatment', category: 'Skincare', price: '₹80' },
   ];
 
   if (loading) {
