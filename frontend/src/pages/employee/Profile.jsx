@@ -97,8 +97,9 @@ const Profile = () => {
 
     try {
       await userService.changePassword({
-        oldPassword: passwordData.oldPassword,
+        currentPassword: passwordData.oldPassword,
         newPassword: passwordData.newPassword,
+        confirmPassword: passwordData.confirmPassword,
       });
       setMessage({ type: 'success', text: 'Password changed successfully!' });
       setPasswordData({ oldPassword: '', newPassword: '', confirmPassword: '' });

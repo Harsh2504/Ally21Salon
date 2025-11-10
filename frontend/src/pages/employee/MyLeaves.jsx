@@ -145,7 +145,7 @@ const MyLeaves = () => {
   const getStatusBadge = (status) => {
     const statusConfig = {
       'Pending': { color: 'bg-yellow-100 text-yellow-800 border-yellow-300', icon: AlertCircle },
-      'Accepted': { color: 'bg-green-100 text-green-800 border-green-300', icon: CheckCircle },
+      'Approved': { color: 'bg-green-100 text-green-800 border-green-300', icon: CheckCircle },
       'Rejected': { color: 'bg-red-100 text-red-800 border-red-300', icon: XCircle },
     };
     return statusConfig[status] || { color: 'bg-gray-100 text-gray-800', icon: AlertCircle };

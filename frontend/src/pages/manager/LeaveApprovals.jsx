@@ -36,15 +36,18 @@ const LeaveApprovals = () => {
   const handleApproveReject = async (leaveId, status) => {
     setActionLoading(true);
     try {
-      await leaveService.approveRejectLeave(leaveId, {
+      console.log('Attempting to update leave:', { leaveId, status, remark });
+      const response = await leaveService.approveRejectLeave(leaveId, {
         status,
         remark: remark || `Leave ${status.toLowerCase()}`
       });
+      console.log('Leave update response:', response);
       await fetchLeaveRequests();
       setSelectedLeave(null);
       setRemark('');
     } catch (error) {
       console.error(`Error ${status.toLowerCase()} leave:`, error);
+      console.error('Error details:', error.response?.data || error.message);
     } finally {
       setActionLoading(false);
     }
@@ -53,7 +56,7 @@ const LeaveApprovals = () => {
   const getStatusBadge = (status) => {
     const statusColors = {
       'Pending': 'bg-yellow-100 text-yellow-800 border-yellow-300',
-      'Accepted': 'bg-green-100 text-green-800 border-green-300',
+      'Approved': 'bg-green-100 text-green-800 border-green-300',
       'Rejected': 'bg-red-100 text-red-800 border-red-300',
     };
     return statusColors[status] || 'bg-gray-100 text-gray-800';
@@ -69,7 +72,7 @@ const LeaveApprovals = () => {
 
   const filteredLeaves = leaves.filter(leave => {
     const matchesSearch = leave.reason.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         leave.userid.toLowerCase().includes(searchTerm.toLowerCase());
+                         (leave.userid?.name || '').toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = filterStatus === 'All' || leave.status === filterStatus;
     return matchesSearch && matchesStatus;
   });
@@ -146,7 +149,7 @@ const LeaveApprovals = () => {
         <div className="relative flex-1 max-w-sm">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
           <Input
-            placeholder="Search by employee ID or reason..."
+            placeholder="Search by employee name or reason..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="pl-10"
@@ -174,8 +177,8 @@ const LeaveApprovals = () => {
           <CardContent className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <Label>Employee ID</Label>
-                <p className="font-medium">{selectedLeave.userid}</p>
+                <Label>Employee Name</Label>
+                <p className="font-medium">{selectedLeave.userid?.name || 'Unknown Employee'}</p>
               </div>
               <div>
                 <Label>Leave Duration</Label>
@@ -223,7 +226,7 @@ const LeaveApprovals = () => {
                 </div>
                 <div className="flex space-x-2">
                   <Button
-                    onClick={() => handleApproveReject(selectedLeave._id, 'Accepted')}
+                    onClick={() => handleApproveReject(selectedLeave._id, 'Approved')}
                     disabled={actionLoading}
                     className="bg-green-600 hover:bg-green-700"
                   >
@@ -269,7 +272,7 @@ const LeaveApprovals = () => {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Employee ID</TableHead>
+                  <TableHead>Employee Name</TableHead>
                   <TableHead>Reason</TableHead>
                   <TableHead>Start Date</TableHead>
                   <TableHead>End Date</TableHead>
@@ -281,7 +284,7 @@ const LeaveApprovals = () => {
               <TableBody>
                 {filteredLeaves.map((leave) => (
                   <TableRow key={leave._id}>
-                    <TableCell className="font-medium">{leave.userid}</TableCell>
+                    <TableCell className="font-medium">{leave.userid?.name || 'Unknown Employee'}</TableCell>
                     <TableCell>{leave.reason}</TableCell>
                     <TableCell>{new Date(leave.startDate).toLocaleDateString()}</TableCell>
                     <TableCell>{new Date(leave.endDate).toLocaleDateString()}</TableCell>

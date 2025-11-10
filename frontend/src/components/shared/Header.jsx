@@ -1,4 +1,5 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
@@ -14,9 +15,37 @@ import { Bell, Settings, User, LogOut, Menu } from 'lucide-react';
 
 const Header = ({ title, onMenuClick, showMenuButton = false }) => {
   const { user, logout } = useAuth();
+  const navigate = useNavigate();
 
   const handleLogout = () => {
     logout();
+  };
+
+  const handleProfileClick = () => {
+    // Navigate to profile based on user role
+    if (user?.role === 'Manager') {
+      navigate('/manager/profile');
+    } else {
+      navigate('/employee/profile');
+    }
+  };
+
+  const handleSettingsClick = () => {
+    // Navigate to settings page within current layout
+    if (user?.role === 'Manager') {
+      navigate('/manager/settings');
+    } else {
+      navigate('/employee/settings');
+    }
+  };
+
+  const handleNotificationsClick = () => {
+    // Navigate to notifications page within current layout
+    if (user?.role === 'Manager') {
+      navigate('/manager/notifications');
+    } else {
+      navigate('/employee/notifications');
+    }
   };
 
   const getUserInitials = () => {
@@ -50,7 +79,12 @@ const Header = ({ title, onMenuClick, showMenuButton = false }) => {
 
         <div className="flex items-center space-x-4">
           {/* Notifications */}
-          <Button variant="ghost" size="icon" className="relative">
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            className="relative"
+            onClick={handleNotificationsClick}
+          >
             <Bell className="h-5 w-5" />
             <span className="absolute top-0 right-0 h-2 w-2 bg-red-500 rounded-full"></span>
           </Button>
@@ -78,11 +112,11 @@ const Header = ({ title, onMenuClick, showMenuButton = false }) => {
                 </div>
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
-              <DropdownMenuItem>
+              <DropdownMenuItem onClick={handleProfileClick}>
                 <User className="mr-2 h-4 w-4" />
                 <span>Profile</span>
               </DropdownMenuItem>
-              <DropdownMenuItem>
+              <DropdownMenuItem onClick={handleSettingsClick}>
                 <Settings className="mr-2 h-4 w-4" />
                 <span>Settings</span>
               </DropdownMenuItem>

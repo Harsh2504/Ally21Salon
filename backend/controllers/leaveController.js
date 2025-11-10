@@ -26,10 +26,28 @@ const createLeaveRequest = async (req, res, next) => {
 const getEmployeeLeaves = async (req, res, next) => {
     try {
         const userId = req.user._id;
-        const leaves = await LeaveRequest.find({ userid: userId });
+        const { status, limit } = req.query;
+        let query = { userid: userId };
+        
+        // Filter by status if provided
+        if (status) {
+            query.status = status;
+        }
+        
+        let leavesQuery = LeaveRequest.find(query).populate('userid', 'name email');
+        
+        // Apply limit if provided
+        if (limit) {
+            leavesQuery = leavesQuery.limit(parseInt(limit));
+        }
+        
+        // Sort by creation date (newest first)
+        leavesQuery = leavesQuery.sort({ createdAt: -1 });
+        
+        const leaves = await leavesQuery;
 
         if (leaves.length === 0) {
-            return res.status(404).json({ message: 'No leaves found for this employee' });
+            return res.status(200).json({ leaves: [] }); // Return empty array instead of 404
         }
 
         res.status(200).json({ leaves });
@@ -99,9 +117,28 @@ const deleteLeaveRequest = async (req, res, next) => {
 // Get all leave requests (Manager)
 const getAllLeaveRequests = async (req, res, next) => {
     try {
-        const leaves = await LeaveRequest.find();
+        const { status, limit } = req.query;
+        let query = {};
+        
+        // Filter by status if provided
+        if (status) {
+            query.status = status;
+        }
+        
+        let leavesQuery = LeaveRequest.find(query).populate('userid', 'name email');
+        
+        // Apply limit if provided
+        if (limit) {
+            leavesQuery = leavesQuery.limit(parseInt(limit));
+        }
+        
+        // Sort by creation date (newest first)
+        leavesQuery = leavesQuery.sort({ createdAt: -1 });
+        
+        const leaves = await leavesQuery;
+        
         if (leaves.length === 0) {
-            return res.status(404).json({ message: 'No leave requests found' });
+            return res.status(200).json({ leaves: [] }); // Return empty array instead of 404
         }
 
         res.status(200).json({ leaves });
@@ -116,8 +153,8 @@ const acceptOrRejectLeaveRequest = async (req, res, next) => {
         const leaveId = req.params.id;
         const { status, remark } = req.body;
 
-        if (status !== 'Accepted' && status !== 'Rejected') {
-            return res.status(400).json({ message: 'Invalid status. Status must be either "Accepted" or "Rejected".' });
+        if (status !== 'Approved' && status !== 'Rejected') {
+            return res.status(400).json({ message: 'Invalid status. Status must be either "Approved" or "Rejected".' });
         }
 
         const leaveRequest = await LeaveRequest.findByIdAndUpdate(

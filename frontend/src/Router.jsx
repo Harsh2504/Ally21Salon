@@ -1,4 +1,5 @@
 import { createBrowserRouter, RouterProvider } from 'react-router-dom';
+import LandingPage from './pages/LandingPage';
 import LoginPage from './pages/LoginPage';
 import ManagerLayout from './components/layouts/ManagerLayout';
 import EmployeeLayout from './components/layouts/EmployeeLayout';
@@ -18,13 +19,17 @@ import MyLeaves from './pages/employee/MyLeaves';
 import MyShifts from './pages/employee/MyShifts';
 import ServiceCatalog from './pages/employee/ServiceCatalog';
 
+// Shared Pages
+import Notifications from './pages/Notifications';
+import Settings from './pages/Settings';
+
 const router = createBrowserRouter([
   {
-    path: '/login',
-    element: <LoginPage />,
+    path: '/',
+    element: <LandingPage />,
   },
   {
-    path: '/',
+    path: '/login',
     element: <LoginPage />,
   },
   {
@@ -55,6 +60,18 @@ const router = createBrowserRouter([
         path: 'leaves',
         element: <LeaveApprovals />,
       },
+      {
+        path: 'profile',
+        element: <Profile />,
+      },
+      {
+        path: 'notifications',
+        element: <Notifications />,
+      },
+      {
+        path: 'settings',
+        element: <Settings />,
+      },
     ],
   },
   {
@@ -84,6 +101,14 @@ const router = createBrowserRouter([
       {
         path: 'services',
         element: <ServiceCatalog />,
+      },
+      {
+        path: 'notifications',
+        element: <Notifications />,
+      },
+      {
+        path: 'settings',
+        element: <Settings />,
       },
     ],
   },

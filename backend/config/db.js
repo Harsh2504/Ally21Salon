@@ -6,7 +6,11 @@ dotenv.config();
 
 const connectDB = async () => {
   try {
-    const conn = await mongoose.connect(process.env.MONGO_URI, {
+    // Use hardcoded URI if env variable is not available
+    const mongoURI = process.env.MONGO_URI || 'mongodb://localhost:27017/AllySalonDB';
+    console.log('Connecting to MongoDB:', mongoURI);
+    
+    const conn = await mongoose.connect(mongoURI, {
       useNewUrlParser: true,
       useUnifiedTopology: true,
     });

@@ -1,222 +1,447 @@
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Users, Clock, FileText, Scissors, TrendingUp, Calendar } from 'lucide-react';
-import { userService, leaveService } from '@/services/apiService';
+import { 
+  Users, Calendar, IndianRupee, TrendingUp, 
+  Clock, AlertTriangle, CheckCircle, XCircle,
+  BarChart3, PieChart, Activity, Star
+} from 'lucide-react';
+import { toast } from 'sonner';
+import { api } from '@/services/api';
+
+// Chart components (using recharts)
+import {
+  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
+  BarChart, Bar, PieChart as RechartsPieChart, Pie, Cell
+} from 'recharts';
 
 const ManagerDashboard = () => {
-  const [stats, setStats] = useState({
-    totalEmployees: 0,
-    pendingLeaves: 0,
-    totalServices: 12, // Mock data since service management is UI-only
-    upcomingShifts: 8, // Mock data since shift management is UI-only
+  const [dashboardData, setDashboardData] = useState({
+    stats: {},
+    recentBookings: [],
+    popularServices: [],
+    employeePerformance: [],
+    upcomingShifts: [],
+    revenue: [],
+    leaveRequests: []
   });
-  const [recentLeaves, setRecentLeaves] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [selectedPeriod, setSelectedPeriod] = useState('week');
 
   useEffect(() => {
     fetchDashboardData();
-  }, []);
+  }, [selectedPeriod]);
 
   const fetchDashboardData = async () => {
     try {
-      // Fetch employees
-      const employeesResponse = await userService.getAllEmployees();
-      const employees = employeesResponse.employees || [];
+      setLoading(true);
+      
+      // Fetch multiple data sources with individual error handling
+      const [
+        statsResponse,
+        bookingsResponse,
+        servicesResponse,
+        shiftsResponse,
+        revenueResponse,
+        leaveResponse
+      ] = await Promise.allSettled([
+        api.get(`/dashboard/stats?period=${selectedPeriod}`),
+        api.get('/bookings?limit=5&sort=createdAt'),
+        api.get('/services/popular?limit=5'),
+        api.get('/shifts?status=Scheduled&limit=5'),
+        api.get(`/dashboard/revenue?period=${selectedPeriod}`),
+        api.get('/leave-requests?status=Pending&limit=5')
+      ]);
 
-      // Fetch leave requests
-      const leavesResponse = await leaveService.getAllLeaveRequests();
-      const leaves = leavesResponse.leaves || [];
-      const pendingLeaves = leaves.filter(leave => leave.status === 'Pending');
+      // Helper function to safely extract data
+      const extractData = (response, defaultValue = {}) => {
+        return response.status === 'fulfilled' ? response.value.data : defaultValue;
+      };
 
-      setStats({
-        totalEmployees: employees.length,
-        pendingLeaves: pendingLeaves.length,
-        totalServices: 12, // Mock data
-        upcomingShifts: 8, // Mock data
+      const extractArray = (response, key, defaultValue = []) => {
+        const data = extractData(response, {});
+        return Array.isArray(data[key]) ? data[key] : defaultValue;
+      };
+
+      setDashboardData({
+        stats: extractData(statsResponse, {}),
+        recentBookings: extractArray(bookingsResponse, 'bookings'),
+        popularServices: extractArray(servicesResponse, 'services'),
+        employeePerformance: Array.isArray(extractData(statsResponse, {}).employeePerformance) 
+          ? extractData(statsResponse, {}).employeePerformance 
+          : [],
+        upcomingShifts: extractArray(shiftsResponse, 'shifts'),
+        revenue: extractArray(revenueResponse, 'revenue'),
+        leaveRequests: extractArray(leaveResponse, 'leaves')
       });
-
-      // Get recent leave requests (last 5)
-      setRecentLeaves(leaves.slice(0, 5));
     } catch (error) {
       console.error('Error fetching dashboard data:', error);
+      toast.error('Failed to fetch dashboard data');
+      
+      // Set default empty data structure
+      setDashboardData({
+        stats: {},
+        recentBookings: [],
+        popularServices: [],
+        employeePerformance: [],
+        upcomingShifts: [],
+        revenue: [],
+        leaveRequests: []
+      });
     } finally {
       setLoading(false);
     }
   };
 
-  const statCards = [
-    {
-      title: 'Total Employees',
-      value: stats.totalEmployees,
-      icon: Users,
-      color: 'bg-blue-500',
-      change: '+2 this month',
-    },
-    {
-      title: 'Pending Leaves',
-      value: stats.pendingLeaves,
-      icon: FileText,
-      color: 'bg-orange-500',
-      change: 'Needs review',
-    },
-    {
-      title: 'Active Services',
-      value: stats.totalServices,
-      icon: Scissors,
-      color: 'bg-green-500',
-      change: '100% operational',
-    },
-    {
-      title: 'Upcoming Shifts',
-      value: stats.upcomingShifts,
-      icon: Clock,
-      color: 'bg-purple-500',
-      change: 'Next 7 days',
-    },
-  ];
+  const formatCurrency = (amount) => {
+    return new Intl.NumberFormat('en-IN', {
+      style: 'currency',
+      currency: 'INR'
+    }).format(amount);
+  };
 
-  const getStatusBadge = (status) => {
-    const statusColors = {
+  const formatDate = (dateString) => {
+    return new Date(dateString).toLocaleDateString();
+  };
+
+  const formatTime = (timeString) => {
+    return new Date(`2000-01-01T${timeString}:00`).toLocaleTimeString([], {
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  };
+
+  const getStatusColor = (status) => {
+    const colors = {
+      'Confirmed': 'bg-green-100 text-green-800',
       'Pending': 'bg-yellow-100 text-yellow-800',
-      'Accepted': 'bg-green-100 text-green-800',
-      'Rejected': 'bg-red-100 text-red-800',
+      'Cancelled': 'bg-red-100 text-red-800',
+      'Completed': 'bg-blue-100 text-blue-800',
+      'Scheduled': 'bg-blue-100 text-blue-800',
+      'Approved': 'bg-green-100 text-green-800',
+      'Rejected': 'bg-red-100 text-red-800'
     };
-    return statusColors[status] || 'bg-gray-100 text-gray-800';
+    return colors[status] || 'bg-gray-100 text-gray-800';
+  };
+
+  // Chart colors
+  const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8'];
+
+  // Helper function to ensure safe chart data
+  const getSafeChartData = (data, defaultValue = []) => {
+    return Array.isArray(data) ? data : defaultValue;
   };
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
       </div>
     );
   }
 
   return (
     <div className="space-y-6">
-      {/* Welcome Section */}
-      <div>
-        <h2 className="text-3xl font-bold tracking-tight">Welcome back!</h2>
-        <p className="text-gray-600">Here's what's happening at your salon today.</p>
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Manager Dashboard</h1>
+          <p className="text-gray-600">Overview of salon performance and operations</p>
+        </div>
+        
+        <div className="flex gap-2">
+          {['week', 'month', 'quarter'].map((period) => (
+            <Button
+              key={period}
+              variant={selectedPeriod === period ? "default" : "outline"}
+              size="sm"
+              onClick={() => setSelectedPeriod(period)}
+            >
+              {period.charAt(0).toUpperCase() + period.slice(1)}
+            </Button>
+          ))}
+        </div>
       </div>
 
-      {/* Stats Cards */}
+      {/* Key Metrics */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {statCards.map((stat, index) => {
-          const Icon = stat.icon;
-          return (
-            <Card key={index}>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">{stat.title}</CardTitle>
-                <div className={`p-2 rounded-full ${stat.color} text-white`}>
-                  <Icon className="h-4 w-4" />
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{stat.value}</div>
-                <p className="text-xs text-gray-600 mt-1">{stat.change}</p>
-              </CardContent>
-            </Card>
-          );
-        })}
-      </div>
-
-      {/* Recent Activity */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Recent Leave Requests */}
         <Card>
-          <CardHeader>
-            <CardTitle>Recent Leave Requests</CardTitle>
-            <CardDescription>Latest employee leave applications</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {recentLeaves.length > 0 ? (
-              <div className="space-y-4">
-                {recentLeaves.map((leave) => (
-                  <div key={leave._id} className="flex items-center justify-between p-3 border rounded-lg">
-                    <div className="flex-1">
-                      <p className="font-medium">Employee ID: {leave.userid}</p>
-                      <p className="text-sm text-gray-600">{leave.reason}</p>
-                      <p className="text-xs text-gray-500">
-                        {new Date(leave.startDate).toLocaleDateString()} - {new Date(leave.endDate).toLocaleDateString()}
-                      </p>
-                    </div>
-                    <Badge className={getStatusBadge(leave.status)}>
-                      {leave.status}
-                    </Badge>
-                  </div>
-                ))}
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Total Revenue</p>
+                <p className="text-2xl font-bold text-gray-900">
+                  {formatCurrency(dashboardData.stats.totalRevenue || 0)}
+                </p>
+                <p className="text-xs text-green-600 flex items-center mt-1">
+                  <TrendingUp className="h-3 w-3 mr-1" />
+                  +{dashboardData.stats.revenueGrowth || 0}% from last {selectedPeriod}
+                </p>
               </div>
-            ) : (
-              <p className="text-gray-500 text-center py-4">No recent leave requests</p>
-            )}
+              <IndianRupee className="h-8 w-8 text-green-600" />
+            </div>
           </CardContent>
         </Card>
 
-        {/* Quick Stats */}
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Total Bookings</p>
+                <p className="text-2xl font-bold text-gray-900">
+                  {dashboardData.stats.totalBookings || 0}
+                </p>
+                <p className="text-xs text-blue-600 flex items-center mt-1">
+                  <Calendar className="h-3 w-3 mr-1" />
+                  {dashboardData.stats.bookingsToday || 0} today
+                </p>
+              </div>
+              <Calendar className="h-8 w-8 text-blue-600" />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Active Staff</p>
+                <p className="text-2xl font-bold text-gray-900">
+                  {dashboardData.stats.activeStaff || 0}
+                </p>
+                <p className="text-xs text-purple-600 flex items-center mt-1">
+                  <Users className="h-3 w-3 mr-1" />
+                  {dashboardData.stats.staffOnDuty || 0} on duty now
+                </p>
+              </div>
+              <Users className="h-8 w-8 text-purple-600" />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Avg Rating</p>
+                <p className="text-2xl font-bold text-gray-900">
+                  {dashboardData.stats.averageRating || 0}/5
+                </p>
+                <p className="text-xs text-orange-600 flex items-center mt-1">
+                  <Star className="h-3 w-3 mr-1" />
+                  {dashboardData.stats.totalReviews || 0} reviews
+                </p>
+              </div>
+              <Star className="h-8 w-8 text-orange-600" />
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Charts Section */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Revenue Chart */}
         <Card>
           <CardHeader>
-            <CardTitle>Performance Overview</CardTitle>
-            <CardDescription>Key metrics for this month</CardDescription>
+            <CardTitle className="flex items-center gap-2">
+              <BarChart3 className="h-5 w-5" />
+              Revenue Trend
+            </CardTitle>
+            <CardDescription>Revenue performance over time</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ResponsiveContainer width="100%" height={300}>
+              <LineChart data={getSafeChartData(dashboardData.revenue)}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="date" />
+                <YAxis />
+                <Tooltip formatter={(value) => formatCurrency(value)} />
+                <Legend />
+                <Line 
+                  type="monotone" 
+                  dataKey="amount" 
+                  stroke="#8884d8" 
+                  strokeWidth={2}
+                  name="Revenue"
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+
+        {/* Popular Services */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <PieChart className="h-5 w-5" />
+              Popular Services
+            </CardTitle>
+            <CardDescription>Most booked services this {selectedPeriod}</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ResponsiveContainer width="100%" height={300}>
+              <RechartsPieChart>
+                <Pie
+                  data={getSafeChartData(dashboardData.popularServices)}
+                  cx="50%"
+                  cy="50%"
+                  labelLine={false}
+                  label={({ name, value }) => `${name}: ${value}`}
+                  outerRadius={80}
+                  fill="#8884d8"
+                  dataKey="bookings"
+                >
+                  {getSafeChartData(dashboardData.popularServices).map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                  ))}
+                </Pie>
+                <Tooltip />
+              </RechartsPieChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Employee Performance & Upcoming Shifts */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Employee Performance */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Activity className="h-5 w-5" />
+              Employee Performance
+            </CardTitle>
+            <CardDescription>Top performing employees this {selectedPeriod}</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-medium">Employee Satisfaction</span>
-                <span className="text-sm text-green-600 font-semibold">92%</span>
-              </div>
-              <div className="w-full bg-gray-200 rounded-full h-2">
-                <div className="bg-green-500 h-2 rounded-full" style={{ width: '92%' }}></div>
-              </div>
+              {getSafeChartData(dashboardData.employeePerformance).map((employee, index) => (
+                <div key={employee._id} className="flex items-center justify-between p-3 border rounded-lg">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+                      <span className="text-sm font-medium text-blue-600">
+                        #{index + 1}
+                      </span>
+                    </div>
+                    <div>
+                      <p className="font-medium">{employee.name}</p>
+                      <p className="text-sm text-gray-600">{employee.role}</p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <p className="font-medium">{formatCurrency(employee.revenue)}</p>
+                    <p className="text-sm text-gray-600">{employee.bookings} bookings</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
 
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-medium">Service Completion</span>
-                <span className="text-sm text-blue-600 font-semibold">87%</span>
-              </div>
-              <div className="w-full bg-gray-200 rounded-full h-2">
-                <div className="bg-blue-500 h-2 rounded-full" style={{ width: '87%' }}></div>
-              </div>
-
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-medium">Revenue Growth</span>
-                <span className="text-sm text-purple-600 font-semibold">+15%</span>
-              </div>
-              <div className="w-full bg-gray-200 rounded-full h-2">
-                <div className="bg-purple-500 h-2 rounded-full" style={{ width: '78%' }}></div>
-              </div>
+        {/* Upcoming Shifts */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Clock className="h-5 w-5" />
+              Today's Shifts
+            </CardTitle>
+            <CardDescription>Staff schedule for today</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              {getSafeChartData(dashboardData.upcomingShifts).map((shift) => (
+                <div key={shift._id} className="flex items-center justify-between p-3 border rounded-lg">
+                  <div>
+                    <p className="font-medium">{shift.employee?.name || 'Unassigned'}</p>
+                    <p className="text-sm text-gray-600">
+                      {formatTime(shift.startTime)} - {formatTime(shift.endTime)}
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <Badge className={getStatusColor(shift.status)}>
+                      {shift.status}
+                    </Badge>
+                    <p className="text-sm text-gray-600 mt-1">{shift.shiftType}</p>
+                  </div>
+                </div>
+              ))}
             </div>
           </CardContent>
         </Card>
       </div>
 
-      {/* Quick Actions */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Quick Actions</CardTitle>
-          <CardDescription>Frequently used management tools</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div className="p-4 border rounded-lg text-center hover:bg-gray-50 cursor-pointer">
-              <Users className="h-8 w-8 mx-auto mb-2 text-blue-500" />
-              <p className="text-sm font-medium">Add Employee</p>
+      {/* Recent Activity & Pending Requests */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Recent Bookings */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Recent Bookings</CardTitle>
+            <CardDescription>Latest customer appointments</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              {getSafeChartData(dashboardData.recentBookings).map((booking) => (
+                <div key={booking._id} className="flex items-center justify-between p-3 border rounded-lg">
+                  <div>
+                    <p className="font-medium">{booking.customerName}</p>
+                    <p className="text-sm text-gray-600">{booking.serviceName}</p>
+                  </div>
+                  <div className="text-right">
+                    <Badge className={getStatusColor(booking.status)}>
+                      {booking.status}
+                    </Badge>
+                    <p className="text-sm text-gray-600 mt-1">
+                      {formatDate(booking.appointmentDate)}
+                    </p>
+                  </div>
+                </div>
+              ))}
             </div>
-            <div className="p-4 border rounded-lg text-center hover:bg-gray-50 cursor-pointer">
-              <Calendar className="h-8 w-8 mx-auto mb-2 text-green-500" />
-              <p className="text-sm font-medium">Schedule Shift</p>
+          </CardContent>
+        </Card>
+
+        {/* Pending Leave Requests */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5" />
+              Pending Leave Requests
+            </CardTitle>
+            <CardDescription>Requests requiring your attention</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              {getSafeChartData(dashboardData.leaveRequests).length === 0 ? (
+                <div className="text-center py-4 text-gray-500">
+                  <CheckCircle className="h-8 w-8 mx-auto mb-2 text-green-500" />
+                  <p>No pending requests</p>
+                </div>
+              ) : (
+                getSafeChartData(dashboardData.leaveRequests).map((request) => (
+                  <div key={request._id} className="flex items-center justify-between p-3 border rounded-lg">
+                    <div>
+                      <p className="font-medium">{request.userid?.name || 'Unknown Employee'}</p>
+                      <p className="text-sm text-gray-600">{request.reason || 'No reason provided'}</p>
+                      <p className="text-xs text-gray-500">
+                        {formatDate(request.startDate)} - {formatDate(request.endDate)}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <Badge className={getStatusColor(request.status)}>
+                        {request.status}
+                      </Badge>
+                      <p className="text-sm text-gray-600 mt-1">
+                        {Math.ceil((new Date(request.endDate) - new Date(request.startDate)) / (1000 * 60 * 60 * 24)) + 1} days
+                      </p>
+                    </div>
+                  </div>
+                ))
+              )}
             </div>
-            <div className="p-4 border rounded-lg text-center hover:bg-gray-50 cursor-pointer">
-              <Scissors className="h-8 w-8 mx-auto mb-2 text-purple-500" />
-              <p className="text-sm font-medium">Manage Services</p>
-            </div>
-            <div className="p-4 border rounded-lg text-center hover:bg-gray-50 cursor-pointer">
-              <TrendingUp className="h-8 w-8 mx-auto mb-2 text-orange-500" />
-              <p className="text-sm font-medium">View Reports</p>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 };

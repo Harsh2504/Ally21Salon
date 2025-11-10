@@ -5,6 +5,11 @@ const { connectDB } = require('./config/db');
 const authRoutes = require('./routes/authRoutes');
 const userRoutes = require('./routes/userRoutes');
 const leaveRoutes = require('./routes/leaveRoutes');
+const serviceRoutes = require('./routes/serviceRoutes');
+const shiftRoutes = require('./routes/shiftRoutes');
+const dashboardRoutes = require('./routes/dashboardRoutes');
+const settingsRoutes = require('./routes/settingsRoutes');
+const notificationRoutes = require('./routes/notificationRoutes');
 
 const app = express();
 
@@ -29,6 +34,13 @@ app.get('/test-error', (req, res, next) => {
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/leave', leaveRoutes);
+app.use('/api/leave-requests', leaveRoutes); // Alias for leave routes
+app.use('/api/services', serviceRoutes);
+app.use('/api/shifts', shiftRoutes);
+app.use('/api/dashboard', dashboardRoutes);
+app.use('/api', dashboardRoutes); // For /api/bookings route
+app.use('/api/settings', settingsRoutes);
+app.use('/api/notifications', notificationRoutes);
 
 // Error handling middleware
 const { errorHandler } = require('./middlewares/errorHandler');
